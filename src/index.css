@@ -1,0 +1,61 @@
+:root {
+    font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
+}
+
+.body {
+    margin: 20px 0px 0px 20px;
+}
+
+.button {
+    padding-left: 16px;
+    font-size: 25px;
+    color: white;
+    background-color: #808080;
+    border: none;
+    cursor: pointer;
+    width: 210px;
+    height: 50px;
+    text-align: left;
+}
+
+.button-precipitation {
+    margin-top: 8px;
+}
+
+button:hover {
+    background-color: #615d5d;
+}
+
+.title {
+    font-size: 22px;
+}
+
+.content {
+    margin-top: 26px;
+    display: flex;
+}
+
+.yearSelector {
+    height: 42px;
+    width: 270px;
+    font-size: 24px;
+    color: #808080;
+    margin-left: 5px;
+}
+
+.content-right {
+    margin-left: 8px;
+}
+
+.content-right-bottom {
+    margin: 10px 0px 0px 5px;
+}
