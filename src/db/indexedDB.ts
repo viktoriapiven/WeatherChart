@@ -1,12 +1,13 @@
 // файл с функциями для работы с БД
+import type { ItemData } from '../types';
 
 // открываем новую БД с 2 "таблицами"
-function _openDataBase() {
-  return new Promise((resolve, reject) => {
+function _openDataBase(): Promise<IDBDatabase> {
+  return new Promise<IDBDatabase>((resolve, reject) => {
     const dBOpenRequest = indexedDB.open('WeatherdataBase', 1);
-    // создаём хранилища для данных из json c температурой и осадками 
-    dBOpenRequest.onupgradeneeded = event => {
-      const dataBase = event.target.result;
+    // создаём хранилища для данных из json c температурой и осадками
+    dBOpenRequest.onupgradeneeded = () => {
+      const dataBase = dBOpenRequest.result;
       if (!dataBase.objectStoreNames.contains('temperature')) {
         dataBase.createObjectStore('temperature', { keyPath: 'date' });
       }
@@ -14,45 +15,45 @@ function _openDataBase() {
         dataBase.createObjectStore('precipitation', { keyPath: 'date' });
       }
     };
-    dBOpenRequest.onsuccess = event => {
-      resolve(event.target.result);
+    dBOpenRequest.onsuccess = () => {
+      resolve(dBOpenRequest.result);
     };
-    dBOpenRequest.onerror = event => {
-      reject(event.target.error);
+    dBOpenRequest.onerror = () => {
+      reject(dBOpenRequest.error);
     };
   });
 }
 
 // возвращает количество записей в хранилище
-function _countRecords(dataBase, storeName) {
-  return new Promise((resolve, reject) => {
+function _countRecords(dataBase: IDBDatabase, storeName: string): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
     const tx = dataBase.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
     const req = store.count();
     req.onsuccess = () => resolve(req.result);
-    req.onerror = reject;
+    req.onerror = () => reject(req.error);
   });
 }
 
 // заполняем хранилища данными из json
-async function _setData(url, dataBase, storeName) {
-  const data = await fetch(url);
-  const rawData = await data.json();
-  const records = rawData.map(item => ({
+async function _setData(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
+  const response = await fetch(url);
+  const rawData = (await response.json()) as Array<{ t: string; v: number }>;
+  const records: ItemData[] = rawData.map((item) => ({
     date: item.t,
-    value: item.v
+    value: item.v,
   }));
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const trans = dataBase.transaction(storeName, 'readwrite');
     const store = trans.objectStore(storeName);
-    records.forEach(rec => store.put(rec));
+    records.forEach((rec) => store.put(rec));
     trans.oncomplete = () => resolve();
-    trans.onerror = () => reject();
+    trans.onerror = () => reject(trans.error);
   });
 }
 
 // публичная функция инициализации БД
-export async function initDataBase() {
+export async function initDataBase(): Promise<IDBDatabase> {
   const dataBase = await _openDataBase();
   if ((await _countRecords(dataBase, 'temperature')) === 0) {
     await _setData('../data/temperature.json', dataBase, 'temperature');
@@ -63,13 +64,13 @@ export async function initDataBase() {
   return dataBase;
 }
 
-//читает все данные из таблицы
-export function getAllData(dataBase, storeName) {
-  return new Promise((resolve, reject) => {
+// читает все данные из таблицы
+export function getAllData(dataBase: IDBDatabase, storeName: string): Promise<ItemData[]> {
+  return new Promise<ItemData[]>((resolve, reject) => {
     const trans = dataBase.transaction(storeName, 'readonly');
     const store = trans.objectStore(storeName);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = reject;
+    request.onsuccess = () => resolve(request.result as ItemData[]);
+    request.onerror = () => reject(request.error);
   });
 }
