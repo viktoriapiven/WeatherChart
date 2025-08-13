@@ -25,7 +25,7 @@ function _openDataBase(): Promise<IDBDatabase> {
 }
 
 // возвращает количество записей в хранилище
-function _countRecords(dataBase: IDBDatabase, storeName: string): Promise<number> {
+export function countRecords(dataBase: IDBDatabase, storeName: string): Promise<number> {
   return new Promise<number>((resolve, reject) => {
     const tx = dataBase.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
@@ -36,7 +36,7 @@ function _countRecords(dataBase: IDBDatabase, storeName: string): Promise<number
 }
 
 // заполняем хранилища данными из json
-async function _setData(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
+export async function _setData(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
   const response = await fetch(url);
   const rawData = (await response.json()) as Array<{ t: string; v: number }>;
   const records: ItemData[] = rawData.map((item) => ({
@@ -55,11 +55,8 @@ async function _setData(url: string, dataBase: IDBDatabase, storeName: string): 
 // публичная функция инициализации БД
 export async function initDataBase(): Promise<IDBDatabase> {
   const dataBase = await _openDataBase();
-  if ((await _countRecords(dataBase, 'temperature')) === 0) {
+  if ((await countRecords(dataBase, 'temperature')) === 0) {
     await _setData('../data/temperature.json', dataBase, 'temperature');
-  }
-  if ((await _countRecords(dataBase, 'precipitation')) === 0) {
-    await _setData('../data/precipitation.json', dataBase, 'precipitation');
   }
   return dataBase;
 }
@@ -73,4 +70,9 @@ export function getAllData(dataBase: IDBDatabase, storeName: string): Promise<It
     request.onsuccess = () => resolve(request.result as ItemData[]);
     request.onerror = () => reject(request.error);
   });
+}
+
+// публичный метод заполнения данными из json
+export async function setDataFromServer(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
+  return _setData(url, dataBase, storeName);
 }

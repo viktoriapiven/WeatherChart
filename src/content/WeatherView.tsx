@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { initDataBase, getAllData } from '../db/indexedDB';
+import { initDataBase, getAllData, setDataFromServer, countRecords } from '../db/indexedDB';
 import YearSelector from './YearSelector';
 import Graph from './Graph';
 import { ItemData } from '../types';
@@ -11,12 +11,12 @@ const START_DATE = '12.31.2006';
 const YEARS_COUNT = 125;
 
 function WeatherView() {
-    const [dataBase, setDataBase] = useState(null);
+    const [dataBase, setDataBase] = useState<IDBDatabase | null>(null);
     const currentYear = new Date(START_DATE).getFullYear();
     const [yearStart, setYearStart] = useState(currentYear - YEARS_COUNT);
     const [yearEnd, setYearEnd] = useState(currentYear);
-    const [temperatureData, setTemperatureData] = useState([]);
-    const [precipitationData, setPrecipitationData] = useState([]);
+    const [temperatureData, setTemperatureData] = useState<ItemData[]>([]);
+    const [precipitationData, setPrecipitationData] = useState<ItemData[]>([]);
     const [selectedType, setSelectedType] = useState('temperature');
 
     useEffect(() => {
@@ -26,16 +26,34 @@ function WeatherView() {
     useEffect(() => {
         if (!dataBase) return;
         async function loadData() {
-            const temp = await getAllData(dataBase, 'temperature');
-            const prec = await getAllData(dataBase, 'precipitation');
+            const temp = await getAllData(dataBase!, 'temperature');
             setTemperatureData(temp);
-            setPrecipitationData(prec);
         }
         loadData();
     }, [dataBase]);
 
-    function handleClick(type: string) {
-        setSelectedType(type);
+    // подгрузка данных по требованию, по замечанию по реализации
+    async function loadPrecipitationData() {
+        if (!dataBase) return;
+        const count = await countRecords(dataBase, 'precipitation');
+        if (count === 0) {
+            await setDataFromServer('../data/precipitation.json', dataBase, 'precipitation');
+            const newData = await getAllData(dataBase, 'precipitation');
+            setPrecipitationData(newData);
+        } else {
+            const existingData = await getAllData(dataBase, 'precipitation');
+            setPrecipitationData(existingData);
+        }
+    }
+
+    function handleClickTemperature() {
+        setSelectedType('temperature');
+    }
+
+    // данные для осадков грузим только при первом переходе к графику Осадки
+    function handleClickPrecipitation() {
+        setSelectedType('precipitation');
+        loadPrecipitationData();
     }
 
     const allData = selectedType === 'temperature' ? temperatureData : precipitationData;
@@ -56,7 +74,7 @@ function WeatherView() {
                         <button
                             id='temperatureButton'
                             className='button'
-                            onClick={() => handleClick('temperature')}>
+                            onClick={() => handleClickTemperature()}>
                             Температура
                         </button>
                     </div>
@@ -64,7 +82,7 @@ function WeatherView() {
                         <button
                             id='precipitationButton'
                             className='button button-precipitation'
-                            onClick={() => handleClick('precipitation')}>
+                            onClick={() => handleClickPrecipitation()}>
                             Осадки
                         </button>
                     </div>
