@@ -37,7 +37,7 @@ function WeatherView() {
         if (!dataBase) return;
         const count = await countRecords(dataBase, 'precipitation');
         if (count === 0) {
-            await setDataFromServer('../data/precipitation.json', dataBase, 'precipitation');
+            await setDataFromServer('/data/precipitation.json', dataBase, 'precipitation');
             const newData = await getAllData(dataBase, 'precipitation');
             setPrecipitationData(newData);
         } else {
@@ -103,10 +103,11 @@ function WeatherView() {
                         />
                     </div>
                     <div className='content-right-bottom'>
-                        <Graph data={filteredData}
-                            type={selectedType}
-                            yearStart={yearStart}
-                            yearEnd={currentYear} />
+                        {filteredData.length !== 0 ?
+                            (<Graph data={filteredData}
+                                type={selectedType}
+                                yearStart={yearStart}
+                                yearEnd={currentYear} />) : (<div className='empty-view'>Загрузка данных...</div>)}
                     </div>
                 </div>
             </div>

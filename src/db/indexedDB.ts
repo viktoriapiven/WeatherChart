@@ -1,6 +1,8 @@
 // файл с функциями для работы с БД
 import type { ItemData } from '../types';
 
+const CHUNK_SIZE = 1000;
+
 // открываем новую БД с 2 "таблицами"
 function _openDataBase(): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -35,20 +37,40 @@ export function countRecords(dataBase: IDBDatabase, storeName: string): Promise<
   });
 }
 
-// заполняем хранилища данными из json
-export async function _setData(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
-  const response = await fetch(url);
-  const rawData = (await response.json()) as Array<{ t: string; v: number }>;
-  const records: ItemData[] = rawData.map((item) => ({
-    date: item.t,
-    value: item.v,
-  }));
-  return new Promise<void>((resolve, reject) => {
-    const trans = dataBase.transaction(storeName, 'readwrite');
-    const store = trans.objectStore(storeName);
-    records.forEach((rec) => store.put(rec));
-    trans.oncomplete = () => resolve();
-    trans.onerror = () => reject(trans.error);
+ // выполняем запись в отдельном потоке, чтобы не блокировать UI
+ async function _setData(url: string, dataBase: IDBDatabase, storeName: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('./dataWorker.ts', import.meta.url), { type: 'module' });
+    const onMessage = (e: MessageEvent) => {
+      const msg = e.data as { type: string; message?: string };
+      if (!msg?.type) return;
+      if (msg.type === 'done') {
+        cleanup();
+        resolve();
+      } else if (msg.type === 'error') {
+        cleanup();
+        reject(new Error(msg.message || 'Worker error'));
+      }
+    };
+    const onError = (err: ErrorEvent) => {
+      cleanup();
+      reject(err.error || new Error(err.message));
+    };
+    const cleanup = () => {
+      worker.removeEventListener('message', onMessage);
+      worker.removeEventListener('error', onError);
+      worker.terminate();
+    };
+    worker.addEventListener('message', onMessage);
+    worker.addEventListener('error', onError);
+    worker.postMessage({
+      action: 'setData',
+      url,
+      dbName: dataBase.name,
+      version: dataBase.version,
+      storeName,
+      chunkSize: CHUNK_SIZE,
+    });
   });
 }
 
@@ -56,7 +78,8 @@ export async function _setData(url: string, dataBase: IDBDatabase, storeName: st
 export async function initDataBase(): Promise<IDBDatabase> {
   const dataBase = await _openDataBase();
   if ((await countRecords(dataBase, 'temperature')) === 0) {
-    await _setData('../data/temperature.json', dataBase, 'temperature');
+    // выполняем запись в отдельном потоке, чтобы не блокировать UI
+    await _setData('/data/temperature.json', dataBase, 'temperature');
   }
   return dataBase;
 }
@@ -67,7 +90,9 @@ export function getAllData(dataBase: IDBDatabase, storeName: string): Promise<It
     const trans = dataBase.transaction(storeName, 'readonly');
     const store = trans.objectStore(storeName);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result as ItemData[]);
+    request.onsuccess = () => {
+      resolve(request.result as ItemData[])
+    };
     request.onerror = () => reject(request.error);
   });
 }

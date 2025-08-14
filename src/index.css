@@ -59,3 +59,15 @@ button:hover {
 .content-right-bottom {
     margin: 10px 0px 0px 5px;
 }
+
+.empty-view {
+    font-size: 20px;
+    color: #808080;
+    height: 440px;
+    width: 544px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    border: 1px solid #C2C2C2;
+}
